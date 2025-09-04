@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mood Diary</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-6">
+  <h1 class="text-3xl font-bold mb-6">🌙 Mood Diary</h1>
+
+  <!-- View Switch -->
+  <div class="mb-6">
+    <button id="listViewBtn" class="bg-blue-500 text-white px-4 py-2 rounded-xl mr-2">List View</button>
+    <button id="calendarViewBtn" class="bg-gray-300 px-4 py-2 rounded-xl">Calendar View</button>
+  </div>
+
+  <!-- Calendar Navigation -->
+  <div id="calendarNav" class="hidden flex items-center space-x-4 mb-4">
+    <button id="prevMonth" class="bg-gray-300 px-3 py-1 rounded">← Prev</button>
+    <h2 id="calendarMonth" class="text-xl font-semibold"></h2>
+    <button id="nextMonth" class="bg-gray-300 px-3 py-1 rounded">Next →</button>
+    <button id="todayBtn" class="bg-blue-500 text-white px-3 py-1 rounded">Today</button>
+  </div>
+
+  <!-- Entry Form (List View Only) -->
+  <div id="entrySection" class="w-full max-w-md">
+    <div class="bg-white p-6 rounded-2xl shadow-md mb-6" id="entryForm">
+      <label class="block font-semibold mb-2">Choose Mood:</label>
+      <div class="flex space-x-3 mb-4">
+        <button class="mood text-2xl">😊</button>
+        <button class="mood text-2xl">😢</button>
+        <button class="mood text-2xl">😡</button>
+        <button class="mood text-2xl">😐</button>
+        <button class="mood text-2xl">😍</button>
+      </div>
+
+      <textarea id="entryText" placeholder="Write about your day..." class="w-full border rounded-xl p-2 mb-4"></textarea>
+
+      <input type="file" id="entryImage" accept="image/*" class="mb-4" />
+
+      <div class="flex space-x-2">
+        <button id="saveEntry" class="flex-1 bg-blue-500 text-white rounded-xl p-2 hover:bg-blue-600">Save Entry</button>
+        <button id="deleteEntry" class="hidden flex-1 bg-red-500 text-white rounded-xl p-2 hover:bg-red-600">Delete Entry</button>
+      </div>
+    </div>
+
+    <!-- Entries List -->
+    <div id="entries" class="w-full space-y-4"></div>
+  </div>
+
+  <!-- Calendar View -->
+  <div id="calendarView" class="hidden w-full max-w-3xl">
+    <div class="bg-white rounded-2xl shadow-md p-6">
+      <div class="grid grid-cols-7 text-center font-semibold text-gray-600 mb-2">
+        <div>Sun</div>
+        <div>Mon</div>
+        <div>Tue</div>
+        <div>Wed</div>
+        <div>Thu</div>
+        <div>Fri</div>
+        <div>Sat</div>
+      </div>
+      <div id="calendar" class="grid grid-cols-7 gap-2"></div>
+    </div>
+  </div>
+
+  <!-- Modal for viewing calendar entry -->
+  <div id="calendarModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-lg p-6 w-full max-w-md relative">
+      <button id="closeModal" class="absolute top-2 right-2 text-gray-500">✖</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <script>
+    let selectedMood = "";
+    let editIndex = null;
+
+    let currentMonth = new Date().getMonth();
+    let currentYear = new Date().getFullYear();
+
+    function seedEntries() {
+      let entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+      const today = new Date();
+
+      const sampleEntries = [
+        {
+          mood: "😊",
+          text: "Had a great walk in the park today.",
+          image: null,
+          date: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3).toLocaleDateString(),
+          time: "10:15"
+        },
+        {
+          mood: "😢",
+          text: "Felt a bit down, but talking to a friend helped.",
+          image: null,
+          date: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2).toLocaleDateString(),
+          time: "14:30"
+        },
+        {
+          mood: "😍",
+          text: "Enjoyed a lovely dinner with family.",
+          image: null,
+          date: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1).toLocaleDateString(),
+          time: "19:00"
+        }
+      ];
+
+      sampleEntries.forEach(sample => {
+        const existingIndex = entries.findIndex(e => e.date === sample.date);
+        if (existingIndex === -1) {
+          entries.push(sample);
+        }
+      });
+
+      localStorage.setItem("moodEntries", JSON.stringify(entries));
+    }
+
+    document.querySelectorAll(".mood").forEach(btn => {
+      btn.addEventListener("click", () => {
+        selectedMood = btn.textContent;
+        document.querySelectorAll(".mood").forEach(b => b.classList.remove("bg-gray-200"));
+        btn.classList.add("bg-gray-200", "rounded-xl", "p-1");
+      });
+    });
+
+    document.getElementById("saveEntry").addEventListener("click", () => {
+      const text = document.getElementById("entryText").value;
+      const file = document.getElementById("entryImage").files[0];
+      const todayDate = new Date().toLocaleDateString();
+
+      let entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+      const hasTodayEntry = entries.some(e => e.date === todayDate);
+
+      if (editIndex === null && hasTodayEntry) {
+        alert("You already made an entry for today!");
+        return;
+      }
+
+      if (!selectedMood || !text) {
+        alert("Please select a mood and write something!");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (editIndex !== null) {
+          let entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+          const entry = entries[editIndex];
+          entry.mood = selectedMood;
+          entry.text = text;
+          entry.image = reader.result || entry.image;
+          entry.time = new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+          entries[editIndex] = entry;
+          editIndex = null;
+          document.getElementById("deleteEntry").classList.add("hidden");
+          localStorage.setItem("moodEntries", JSON.stringify(entries));
+        } else {
+          const entry = {
+            mood: selectedMood,
+            text: text,
+            image: reader.result || null,
+            date: todayDate,
+            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
+          };
+          entries.unshift(entry);
+          localStorage.setItem("moodEntries", JSON.stringify(entries));
+        }
+
+        document.getElementById("entryText").value = "";
+        document.getElementById("entryImage").value = "";
+        selectedMood = "";
+        renderEntries();
+      };
+      if (file) reader.readAsDataURL(file);
+      else reader.onload();
+    });
+
+    document.getElementById("deleteEntry").addEventListener("click", () => {
+      if (editIndex !== null) {
+        let entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+        entries.splice(editIndex, 1);
+        localStorage.setItem("moodEntries", JSON.stringify(entries));
+        editIndex = null;
+        document.getElementById("entryText").value = "";
+        document.getElementById("entryImage").value = "";
+        selectedMood = "";
+        document.getElementById("deleteEntry").classList.add("hidden");
+        renderEntries();
+      }
+    });
+
+    function renderEntries() {
+      const entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+      const container = document.getElementById("entries");
+      container.innerHTML = "";
+
+      entries.forEach((e, index) => {
+        const div = document.createElement("div");
+        div.className = "bg-white p-4 rounded-2xl shadow";
+        div.innerHTML = `
+          <div class="flex items-center space-x-2 mb-2">
+            <span class="text-2xl">${e.mood}</span>
+            <span class="text-sm text-gray-500">${e.date} ${e.time}</span>
+          </div>
+          <p class="mb-2">${e.text}</p>
+          ${e.image ? `<img src="${e.image}" class="rounded-xl max-h-60 mb-2" />` : ""}
+          <button class="editBtn bg-yellow-400 text-white px-2 py-1 rounded" data-index="${index}">Edit</button>
+        `;
+        container.appendChild(div);
+      });
+
+      document.querySelectorAll(".editBtn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const index = btn.getAttribute("data-index");
+          let entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+          const entry = entries[index];
+
+          document.getElementById("entryText").value = entry.text;
+          selectedMood = entry.mood;
+          document.querySelectorAll(".mood").forEach(b => {
+            b.classList.remove("bg-gray-200");
+            if (b.textContent === entry.mood) b.classList.add("bg-gray-200", "rounded-xl", "p-1");
+          });
+
+          editIndex = index;
+          document.getElementById("deleteEntry").classList.remove("hidden");
+        });
+      });
+    }
+
+    function renderCalendar() {
+      const entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+      const container = document.getElementById("calendar");
+      container.innerHTML = "";
+
+      const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+      document.getElementById("calendarMonth").textContent = new Date(currentYear, currentMonth).toLocaleString("default", { month: "long", year: "numeric" });
+
+      for (let i = 0; i < firstDay; i++) {
+        container.appendChild(document.createElement("div"));
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const div = document.createElement("div");
+        div.className = "bg-white rounded-xl shadow flex items-center justify-center h-16 text-xl cursor-pointer";
+
+        const entryIndex = entries.findIndex(e => {
+          const entryDate = new Date(e.date);
+          return entryDate.getDate() === day && entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear;
+        });
+
+        if (entryIndex !== -1) {
+          div.textContent = entries[entryIndex].mood;
+          div.addEventListener("click", () => {
+            const entry = entries[entryIndex];
+            const modalContent = document.getElementById("modalContent");
+            modalContent.innerHTML = `
+              <div class="flex items-center space-x-2 mb-2">
+                <span class="text-2xl">${entry.mood}</span>
+                <span class="text-sm text-gray-500">${entry.date} ${entry.time}</span>
+              </div>
+              <p class="mb-2">${entry.text}</p>
+              ${entry.image ? `<img src="${entry.image}" class="rounded-xl max-h-60 mb-2" />` : ""}
+            `;
+            document.getElementById("calendarModal").classList.remove("hidden");
+          });
+        } else {
+          div.textContent = day;
+        }
+
+        container.appendChild(div);
+      }
+    }
+
+    document.getElementById("closeModal").addEventListener("click", () => {
+      document.getElementById("calendarModal").classList.add("hidden");
+    });
+
+    document.getElementById("listViewBtn").addEventListener("click", () => {
+      document.getElementById("entrySection").classList.remove("hidden");
+      document.getElementById("calendarView").classList.add("hidden");
+      document.getElementById("calendarNav").classList.add("hidden");
+      renderEntries();
+    });
+
+    document.getElementById("calendarViewBtn").addEventListener("click", () => {
+      document.getElementById("entrySection").classList.add("hidden");
+      document.getElementById("calendarView").classList.remove("hidden");
+      document.getElementById("calendarNav").classList.remove("hidden");
+      renderCalendar();
+    });
+
+    document.getElementById("prevMonth").addEventListener("click", () => {
+      currentMonth--;
+      if (currentMonth < 0) {
+        currentMonth = 11;
+        currentYear--;
+      }
+      renderCalendar();
+    });
+
+    document.getElementById("nextMonth").addEventListener("click", () => {
+      currentMonth++;
+      if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+      }
+      renderCalendar();
+    });
+
+    document.getElementById("todayBtn").addEventListener("click", () => {
+      currentMonth = new Date().getMonth();
+      currentYear = new Date().getFullYear();
+      renderCalendar();
+    });
+
+    seedEntries();
+    renderEntries();
+  </script>
+</body>
+</html>
