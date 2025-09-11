@@ -1,326 +1,493 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Mood Diary</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* improved visible focus for keyboard users */
+    :focus {
+      outline: 3px solid #1e40af; /* blue-800 */
+      outline-offset: 2px;
+    }
+    .sr-only {
+      position: absolute !important;
+      width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+  </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center p-6">
-  <h1 class="text-3xl font-bold mb-6">🌙 Mood Diary</h1>
+  <header class="mb-6 w-full max-w-3xl flex justify-center">
+    <h1 class="text-3xl font-bold">🌙 Mood Diary</h1>
+  </header>
 
   <!-- View Switch -->
-  <div class="mb-6">
-    <button id="listViewBtn" class="bg-blue-500 text-white px-4 py-2 rounded-xl mr-2">List View</button>
-    <button id="calendarViewBtn" class="bg-gray-300 px-4 py-2 rounded-xl">Calendar View</button>
+  <nav class="mb-6" aria-label="View switch">
+    <button id="listViewBtn" class="bg-blue-600 text-white px-4 py-2 rounded-xl mr-2" aria-pressed="true">List View</button>
+    <button id="calendarViewBtn" class="bg-gray-700 text-white px-4 py-2 rounded-xl" aria-pressed="false">Calendar View</button>
+  </nav>
+
+  <!-- Calendar navigation (shows in calendar view) -->
+  <div id="calendarNav" class="hidden flex items-center space-x-4 mb-4 w-full max-w-3xl" aria-label="Calendar navigation">
+    <button id="prevMonth" class="bg-gray-700 text-white px-3 py-1 rounded">← Prev</button>
+    <h2 id="calendarMonth" class="text-xl font-semibold" aria-live="polite"></h2>
+    <button id="nextMonth" class="bg-gray-700 text-white px-3 py-1 rounded">Next →</button>
+    <button id="todayBtn" class="bg-blue-600 text-white px-3 py-1 rounded">Today</button>
   </div>
 
-  <!-- Calendar Navigation -->
-  <div id="calendarNav" class="hidden flex items-center space-x-4 mb-4">
-    <button id="prevMonth" class="bg-gray-300 px-3 py-1 rounded">← Prev</button>
-    <h2 id="calendarMonth" class="text-xl font-semibold"></h2>
-    <button id="nextMonth" class="bg-gray-300 px-3 py-1 rounded">Next →</button>
-    <button id="todayBtn" class="bg-blue-500 text-white px-3 py-1 rounded">Today</button>
-  </div>
+  <main id="main" class="w-full max-w-3xl" role="main">
+    <!-- Entry Section -->
+    <section id="entrySection" aria-labelledby="entryHeading">
+      <h2 id="entryHeading" class="sr-only">Add and manage diary entries</h2>
 
-  <!-- Entry Form (List View Only) -->
-  <div id="entrySection" class="w-full max-w-md">
-    <div class="bg-white p-6 rounded-2xl shadow-md mb-6" id="entryForm">
-      <label class="block font-semibold mb-2">Choose Mood:</label>
-      <div class="flex space-x-3 mb-4">
-        <button class="mood text-2xl">😊</button>
-        <button class="mood text-2xl">😢</button>
-        <button class="mood text-2xl">😡</button>
-        <button class="mood text-2xl">😐</button>
-        <button class="mood text-2xl">😍</button>
+      <form id="entryForm" class="bg-white p-6 rounded-2xl shadow-md mb-6" novalidate>
+        <div id="editBanner" class="hidden bg-yellow-50 border border-yellow-200 text-yellow-900 font-semibold p-2 rounded-lg mb-4" aria-live="polite"></div>
+
+        <fieldset class="mb-4" aria-label="Mood selection">
+          <legend class="block font-semibold mb-2">Choose Mood</legend>
+          <div id="moodGroup" class="flex gap-2" role="radiogroup" aria-label="Mood scale">
+            <!-- 7-point ordered from very positive -> intense negative -->
+            <button type="button" class="mood px-2 py-1 text-2xl rounded border" role="radio" aria-checked="false" aria-label="Very excited">🥳</button>
+            <button type="button" class="mood px-2 py-1 text-2xl rounded border" role="radio" aria-checked="false" aria-label="Happy">😀</button>
+            <button type="button" class="mood px-2 py-1 text-2xl rounded border" role="radio" aria-checked="false" aria-label="Content">🙂</button>
+            <button type="button" class="mood px-2 py-1 text-2xl rounded border" role="radio" aria-checked="false" aria-label="Neutral">😐</button>
+            <button type="button" class="mood px-2 py-1 text-2xl rounded border" role="radio" aria-checked="false" aria-label="Disappointed">😞</button>
+            <button type="button" class="mood px-2 py-1 text-2xl rounded border" role="radio" aria-checked="false" aria-label="Sad">😢</button>
+            <button type="button" class="mood px-2 py-1 text-2xl rounded border" role="radio" aria-checked="false" aria-label="Angry">😡</button>
+          </div>
+        </fieldset>
+
+        <div class="mb-4">
+          <label for="entryText" class="block font-semibold mb-2">Diary entry</label>
+          <textarea id="entryText" class="w-full border rounded-xl p-2" rows="4" aria-required="true" placeholder="Write about your day..."></textarea>
+        </div>
+
+        <div class="mb-3">
+          <label for="entryImage" class="block mb-2 font-semibold">Attach image (optional)</label>
+          <input id="entryImage" type="file" accept="image/*" class="block" aria-describedby="imageHelp" />
+          <p id="imageHelp" class="text-sm text-gray-600 mt-1">If you edit an entry without selecting a new image, the existing image is preserved.</p>
+        </div>
+
+        <!-- Preview of current image while editing -->
+        <div id="currentImagePreview" class="mb-4 hidden">
+          <p class="text-sm text-gray-700">Current image preview</p>
+          <img id="previewImg" src="" alt="" class="rounded-xl max-h-40 mt-1" />
+        </div>
+
+        <div class="flex gap-2">
+          <button id="saveEntry" type="button" class="flex-1 bg-blue-600 text-white rounded-xl p-2 hover:bg-blue-700">Save Entry</button>
+          <button id="cancelEdit" type="button" class="hidden flex-1 bg-gray-700 text-white rounded-xl p-2 hover:bg-gray-800">Cancel</button>
+          <button id="deleteEntry" type="button" class="hidden flex-1 bg-red-700 text-white rounded-xl p-2 hover:bg-red-800">Delete Entry</button>
+        </div>
+      </form>
+
+      <!-- Entries list -->
+      <section aria-labelledby="entriesHeading">
+        <h3 id="entriesHeading" class="sr-only">Diary entries</h3>
+        <div id="entries" class="space-y-4"></div>
+      </section>
+    </section>
+
+    <!-- Calendar View -->
+    <section id="calendarView" class="hidden" aria-labelledby="calendarHeading">
+      <h2 id="calendarHeading" class="sr-only">Calendar</h2>
+      <div class="bg-white rounded-2xl shadow-md p-6">
+        <div class="grid grid-cols-7 text-center font-semibold text-gray-600 mb-2">
+          <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+        </div>
+        <div id="calendar" class="grid grid-cols-7 gap-2"></div>
       </div>
-
-      <textarea id="entryText" placeholder="Write about your day..." class="w-full border rounded-xl p-2 mb-4"></textarea>
-
-      <input type="file" id="entryImage" accept="image/*" class="mb-4" />
-
-      <div class="flex space-x-2">
-        <button id="saveEntry" class="flex-1 bg-blue-500 text-white rounded-xl p-2 hover:bg-blue-600">Save Entry</button>
-        <button id="deleteEntry" class="hidden flex-1 bg-red-500 text-white rounded-xl p-2 hover:bg-red-600">Delete Entry</button>
-      </div>
-    </div>
-
-    <!-- Entries List -->
-    <div id="entries" class="w-full space-y-4"></div>
-  </div>
-
-  <!-- Calendar View -->
-  <div id="calendarView" class="hidden w-full max-w-3xl">
-    <div class="bg-white rounded-2xl shadow-md p-6">
-      <div class="grid grid-cols-7 text-center font-semibold text-gray-600 mb-2">
-        <div>Sun</div>
-        <div>Mon</div>
-        <div>Tue</div>
-        <div>Wed</div>
-        <div>Thu</div>
-        <div>Fri</div>
-        <div>Sat</div>
-      </div>
-      <div id="calendar" class="grid grid-cols-7 gap-2"></div>
-    </div>
-  </div>
+    </section>
+  </main>
 
   <!-- Modal for viewing calendar entry -->
-  <div id="calendarModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+  <div id="calendarModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="bg-white rounded-2xl shadow-lg p-6 w-full max-w-md relative">
-      <button id="closeModal" class="absolute top-2 right-2 text-gray-500">✖</button>
+      <h4 id="modalTitle" class="text-lg font-semibold sr-only">Entry details</h4>
+      <button id="closeModal" class="absolute top-2 right-2 text-gray-600" aria-label="Close entry dialog">✖</button>
       <div id="modalContent"></div>
     </div>
   </div>
 
   <script>
+    /* ---------- State ---------- */
     let selectedMood = "";
     let editIndex = null;
-
     let currentMonth = new Date().getMonth();
     let currentYear = new Date().getFullYear();
 
-    function seedEntries() {
-      let entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
-      const today = new Date();
-
-      const sampleEntries = [
-        {
-          mood: "😊",
-          text: "Had a great walk in the park today.",
-          image: null,
-          date: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3).toLocaleDateString(),
-          time: "10:15"
-        },
-        {
-          mood: "😢",
-          text: "Felt a bit down, but talking to a friend helped.",
-          image: null,
-          date: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2).toLocaleDateString(),
-          time: "14:30"
-        },
-        {
-          mood: "😍",
-          text: "Enjoyed a lovely dinner with family.",
-          image: null,
-          date: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1).toLocaleDateString(),
-          time: "19:00"
-        }
-      ];
-
-      sampleEntries.forEach(sample => {
-        const existingIndex = entries.findIndex(e => e.date === sample.date);
-        if (existingIndex === -1) {
-          entries.push(sample);
-        }
-      });
-
+    /* ---------- Helpers ---------- */
+    function getEntries() {
+      return JSON.parse(localStorage.getItem("moodEntries")) || [];
+    }
+    function setEntries(entries) {
       localStorage.setItem("moodEntries", JSON.stringify(entries));
     }
+    function formatAltDate(dateStr) {
+      try {
+        const d = new Date(dateStr);
+        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+      } catch {
+        return dateStr;
+      }
+    }
+    function timeNowHM() {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
 
-    document.querySelectorAll(".mood").forEach(btn => {
-      btn.addEventListener("click", () => {
-        selectedMood = btn.textContent;
-        document.querySelectorAll(".mood").forEach(b => b.classList.remove("bg-gray-200"));
-        btn.classList.add("bg-gray-200", "rounded-xl", "p-1");
+    /* ---------- DOM refs ---------- */
+    const moodButtons = Array.from(document.querySelectorAll(".mood"));
+    const entryTextEl = document.getElementById("entryText");
+    const entryImageEl = document.getElementById("entryImage");
+    const previewDiv = document.getElementById("currentImagePreview");
+    const previewImg = document.getElementById("previewImg");
+    const entryForm = document.getElementById("entryForm");
+    const editBanner = document.getElementById("editBanner");
+
+    /* ---------- Mood button (keyboard friendly) ---------- */
+    function setSelectedMood(emoji) {
+      selectedMood = emoji;
+      moodButtons.forEach(btn => {
+        const checked = btn.textContent === emoji;
+        btn.setAttribute("aria-checked", checked ? "true" : "false");
+        btn.classList.toggle("ring-2", checked);
+        btn.classList.toggle("ring-blue-600", checked);
+        btn.classList.toggle("bg-blue-50", checked);
+      });
+    }
+    moodButtons.forEach((btn, idx) => {
+      btn.addEventListener("click", () => setSelectedMood(btn.textContent));
+      btn.addEventListener("keydown", (e) => {
+        // allow arrow navigation within mood set
+        const key = e.key;
+        if (["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"].includes(key)) {
+          e.preventDefault();
+          const dir = (key === "ArrowRight" || key === "ArrowDown") ? 1 : -1;
+          const next = (idx + dir + moodButtons.length) % moodButtons.length;
+          moodButtons[next].focus();
+          setSelectedMood(moodButtons[next].textContent);
+        }
       });
     });
 
+    /* ---------- Create / Edit / Delete ---------- */
     document.getElementById("saveEntry").addEventListener("click", () => {
-      const text = document.getElementById("entryText").value;
-      const file = document.getElementById("entryImage").files[0];
+      const text = entryTextEl.value.trim();
+      const file = entryImageEl.files[0];
       const todayDate = new Date().toLocaleDateString();
+      let entries = getEntries();
 
-      let entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
-      const hasTodayEntry = entries.some(e => e.date === todayDate);
-
-      if (editIndex === null && hasTodayEntry) {
-        alert("You already made an entry for today!");
+      // one entry per day rule (unless editing)
+      if (editIndex === null && entries.some(e => e.date === todayDate)) {
+        alert("You already made an entry for today.");
         return;
       }
-
       if (!selectedMood || !text) {
-        alert("Please select a mood and write something!");
+        alert("Please select a mood and write something.");
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (editIndex !== null) {
-          let entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
-          const entry = entries[editIndex];
-          entry.mood = selectedMood;
-          entry.text = text;
-          entry.image = reader.result || entry.image;
-          entry.time = new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-          entries[editIndex] = entry;
-          editIndex = null;
-          document.getElementById("deleteEntry").classList.add("hidden");
-          localStorage.setItem("moodEntries", JSON.stringify(entries));
-        } else {
-          const entry = {
-            mood: selectedMood,
-            text: text,
-            image: reader.result || null,
-            date: todayDate,
-            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
-          };
-          entries.unshift(entry);
-          localStorage.setItem("moodEntries", JSON.stringify(entries));
-        }
-
-        document.getElementById("entryText").value = "";
-        document.getElementById("entryImage").value = "";
-        selectedMood = "";
+      const finalizeNew = (imageDataUrl) => {
+        const entry = {
+          mood: selectedMood,
+          text,
+          image: imageDataUrl || null,
+          date: todayDate,
+          time: timeNowHM()
+        };
+        entries.unshift(entry);
+        setEntries(entries);
+        finishEdit();
         renderEntries();
       };
-      if (file) reader.readAsDataURL(file);
-      else reader.onload();
+
+      if (editIndex !== null) {
+        // editing — keep original date, update time; keep existing image unless file provided
+        let entry = entries[editIndex];
+        entry.mood = selectedMood;
+        entry.text = text;
+        entry.time = timeNowHM();
+
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            entry.image = reader.result;
+            entries[editIndex] = entry;
+            setEntries(entries);
+            finishEdit();
+            renderEntries();
+          };
+          reader.readAsDataURL(file);
+        } else {
+          entries[editIndex] = entry;
+          setEntries(entries);
+          finishEdit();
+          renderEntries();
+        }
+      } else {
+        // creating new entry
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = () => finalizeNew(reader.result);
+          reader.readAsDataURL(file);
+        } else {
+          finalizeNew(null);
+        }
+      }
     });
 
     document.getElementById("deleteEntry").addEventListener("click", () => {
-      if (editIndex !== null) {
-        let entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+      if (editIndex !== null && confirm("Delete this entry?")) {
+        let entries = getEntries();
         entries.splice(editIndex, 1);
-        localStorage.setItem("moodEntries", JSON.stringify(entries));
-        editIndex = null;
-        document.getElementById("entryText").value = "";
-        document.getElementById("entryImage").value = "";
-        selectedMood = "";
-        document.getElementById("deleteEntry").classList.add("hidden");
+        setEntries(entries);
+        finishEdit();
         renderEntries();
       }
     });
 
+    document.getElementById("cancelEdit").addEventListener("click", finishEdit);
+
+    function finishEdit() {
+      entryTextEl.value = "";
+      entryImageEl.value = "";
+      previewDiv.classList.add("hidden");
+      selectedMood = "";
+      editIndex = null;
+      document.getElementById("deleteEntry").classList.add("hidden");
+      document.getElementById("cancelEdit").classList.add("hidden");
+      editBanner.classList.add("hidden");
+      editBanner.textContent = "";
+      entryForm.classList.remove("bg-yellow-50");
+      moodButtons.forEach(b => b.classList.remove("bg-gray-200", "ring-2", "ring-blue-600", "bg-blue-50"));
+    }
+
+    /* ---------- Render list ---------- */
     function renderEntries() {
-      const entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
+      let entries = getEntries();
+      // newest first
+      entries.sort((a, b) => new Date(b.date + " " + b.time) - new Date(a.date + " " + a.time));
+      setEntries(entries); // keep storage ordered
+
       const container = document.getElementById("entries");
       container.innerHTML = "";
 
       entries.forEach((e, index) => {
-        const div = document.createElement("div");
-        div.className = "bg-white p-4 rounded-2xl shadow";
-        div.innerHTML = `
-          <div class="flex items-center space-x-2 mb-2">
-            <span class="text-2xl">${e.mood}</span>
-            <span class="text-sm text-gray-500">${e.date} ${e.time}</span>
+        const article = document.createElement("article");
+        article.className = "bg-white p-4 rounded-2xl shadow";
+        article.innerHTML = `
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-2xl" aria-hidden="true">${e.mood}</span>
+            <span class="text-sm text-gray-700">${e.date} ${e.time}</span>
           </div>
-          <p class="mb-2">${e.text}</p>
-          ${e.image ? `<img src="${e.image}" class="rounded-xl max-h-60 mb-2" />` : ""}
-          <button class="editBtn bg-yellow-400 text-white px-2 py-1 rounded" data-index="${index}">Edit</button>
+          <p class="mb-2"></p>
         `;
-        container.appendChild(div);
-      });
+        article.querySelector("p").textContent = e.text;
 
-      document.querySelectorAll(".editBtn").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const index = btn.getAttribute("data-index");
-          let entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
-          const entry = entries[index];
+        if (e.image) {
+          const img = document.createElement("img");
+          img.src = e.image;
+          img.alt = `Image attached to entry on ${formatAltDate(e.date)}`;
+          img.className = "rounded-xl max-h-60 mb-2";
+          article.appendChild(img);
+        }
 
-          document.getElementById("entryText").value = entry.text;
-          selectedMood = entry.mood;
-          document.querySelectorAll(".mood").forEach(b => {
-            b.classList.remove("bg-gray-200");
-            if (b.textContent === entry.mood) b.classList.add("bg-gray-200", "rounded-xl", "p-1");
-          });
+        const editBtn = document.createElement("button");
+        editBtn.className = "bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700";
+        editBtn.textContent = "Edit";
+        editBtn.addEventListener("click", () => {
+          // load entry into form for editing
+          const entriesNow = getEntries();
+          const entry = entriesNow[index];
+
+          entryTextEl.value = entry.text;
+          setSelectedMood(entry.mood);
+
+          if (entry.image) {
+            previewImg.src = entry.image;
+            previewImg.alt = `Current image for entry on ${formatAltDate(entry.date)}`;
+            previewDiv.classList.remove("hidden");
+          } else {
+            previewDiv.classList.add("hidden");
+          }
 
           editIndex = index;
           document.getElementById("deleteEntry").classList.remove("hidden");
+          document.getElementById("cancelEdit").classList.remove("hidden");
+
+          editBanner.textContent = `✏️ Editing entry from ${entry.date} at ${entry.time}`;
+          editBanner.classList.remove("hidden");
+
+          // visual edit background (contrast: dark text on light yellow)
+          entryForm.classList.add("bg-yellow-50");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          document.getElementById("saveEntry").focus();
         });
+
+        article.appendChild(editBtn);
+        container.appendChild(article);
       });
     }
 
-    function renderCalendar() {
-      const entries = JSON.parse(localStorage.getItem("moodEntries")) || [];
-      const container = document.getElementById("calendar");
-      container.innerHTML = "";
+    function setSelectedMood(emoji) {
+      selectedMood = emoji;
+      moodButtons.forEach(btn => {
+        const checked = btn.textContent === emoji;
+        btn.setAttribute("aria-checked", checked ? "true" : "false");
+        btn.classList.toggle("ring-2", checked);
+        btn.classList.toggle("ring-blue-600", checked);
+        btn.classList.toggle("bg-blue-50", checked);
+      });
+    }
 
+    /* ---------- Calendar rendering ---------- */
+    const calendarDiv = document.getElementById("calendar");
+    function renderCalendar() {
+      calendarDiv.innerHTML = "";
+      const entries = getEntries();
       const firstDay = new Date(currentYear, currentMonth, 1).getDay();
       const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-      document.getElementById("calendarMonth").textContent = new Date(currentYear, currentMonth).toLocaleString("default", { month: "long", year: "numeric" });
-
+      // blank leading cells
       for (let i = 0; i < firstDay; i++) {
-        container.appendChild(document.createElement("div"));
+        const blank = document.createElement("div");
+        calendarDiv.appendChild(blank);
       }
 
       for (let day = 1; day <= daysInMonth; day++) {
+        const dateObj = new Date(currentYear, currentMonth, day);
         const div = document.createElement("div");
-        div.className = "bg-white rounded-xl shadow flex items-center justify-center h-16 text-xl cursor-pointer";
+        div.className = "h-16 flex items-center justify-center border rounded-xl cursor-pointer bg-white";
 
-        const entryIndex = entries.findIndex(e => {
-          const entryDate = new Date(e.date);
-          return entryDate.getDate() === day && entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear;
+        const entry = entries.find(e => {
+          const ed = new Date(e.date);
+          return ed.getDate() === day && ed.getMonth() === currentMonth && ed.getFullYear() === currentYear;
         });
 
-        if (entryIndex !== -1) {
-          div.textContent = entries[entryIndex].mood;
+        if (entry) {
+          div.textContent = entry.mood;
+          div.setAttribute("aria-label", `${dateObj.toDateString()} — entry available`);
           div.addEventListener("click", () => {
-            const entry = entries[entryIndex];
-            const modalContent = document.getElementById("modalContent");
-            modalContent.innerHTML = `
-              <div class="flex items-center space-x-2 mb-2">
-                <span class="text-2xl">${entry.mood}</span>
-                <span class="text-sm text-gray-500">${entry.date} ${entry.time}</span>
+            // show modal content for this entry
+            document.getElementById("modalContent").innerHTML = `
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-2xl" aria-hidden="true">${entry.mood}</span>
+                <span class="text-sm text-gray-700">${entry.date} ${entry.time}</span>
               </div>
               <p class="mb-2">${entry.text}</p>
-              ${entry.image ? `<img src="${entry.image}" class="rounded-xl max-h-60 mb-2" />` : ""}
+              ${entry.image ? `<img src="${entry.image}" alt="Image for entry on ${formatAltDate(entry.date)}" class="rounded-xl max-h-40 mt-2" />` : ""}
             `;
             document.getElementById("calendarModal").classList.remove("hidden");
+            document.getElementById("closeModal").focus();
           });
         } else {
           div.textContent = day;
+          div.setAttribute("aria-label", `${dateObj.toDateString()} — no entry`);
         }
 
-        container.appendChild(div);
+        // highlight today
+        const now = new Date();
+        if (now.toDateString() === dateObj.toDateString()) {
+          div.classList.add("ring-2", "ring-blue-600");
+          div.setAttribute("aria-current", "date");
+        }
+
+        calendarDiv.appendChild(div);
       }
+
+      document.getElementById("calendarMonth").textContent = new Date(currentYear, currentMonth).toLocaleString(undefined, { month: "long", year: "numeric" });
     }
 
-    document.getElementById("closeModal").addEventListener("click", () => {
-      document.getElementById("calendarModal").classList.add("hidden");
-    });
-
-    document.getElementById("listViewBtn").addEventListener("click", () => {
-      document.getElementById("entrySection").classList.remove("hidden");
-      document.getElementById("calendarView").classList.add("hidden");
-      document.getElementById("calendarNav").classList.add("hidden");
-      renderEntries();
-    });
-
-    document.getElementById("calendarViewBtn").addEventListener("click", () => {
-      document.getElementById("entrySection").classList.add("hidden");
-      document.getElementById("calendarView").classList.remove("hidden");
-      document.getElementById("calendarNav").classList.remove("hidden");
-      renderCalendar();
-    });
-
+    // calendar nav handlers
     document.getElementById("prevMonth").addEventListener("click", () => {
       currentMonth--;
-      if (currentMonth < 0) {
-        currentMonth = 11;
-        currentYear--;
-      }
+      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
       renderCalendar();
     });
-
     document.getElementById("nextMonth").addEventListener("click", () => {
       currentMonth++;
-      if (currentMonth > 11) {
-        currentMonth = 0;
-        currentYear++;
-      }
+      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
       renderCalendar();
     });
-
     document.getElementById("todayBtn").addEventListener("click", () => {
       currentMonth = new Date().getMonth();
       currentYear = new Date().getFullYear();
       renderCalendar();
     });
 
-    seedEntries();
+    // modal close
+    document.getElementById("closeModal").addEventListener("click", () => {
+      document.getElementById("calendarModal").classList.add("hidden");
+    });
+    // clicking backdrop closes modal
+    document.getElementById("calendarModal").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) {
+        document.getElementById("calendarModal").classList.add("hidden");
+      }
+    });
+    // escape closes modal
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        const modal = document.getElementById("calendarModal");
+        if (!modal.classList.contains("hidden")) modal.classList.add("hidden");
+      }
+    });
+
+    /* ---------- View toggles ---------- */
+    const listBtn = document.getElementById("listViewBtn");
+    const calBtn = document.getElementById("calendarViewBtn");
+    const entrySection = document.getElementById("entrySection");
+    const calendarSection = document.getElementById("calendarView");
+    const calendarNav = document.getElementById("calendarNav");
+
+    function showListView() {
+      entrySection.classList.remove("hidden");
+      calendarSection.classList.add("hidden");
+      calendarNav.classList.add("hidden");
+      listBtn.setAttribute("aria-pressed", "true");
+      calBtn.setAttribute("aria-pressed", "false");
+      renderEntries();
+      listBtn.focus();
+    }
+
+    function showCalendarView() {
+      entrySection.classList.add("hidden");
+      calendarSection.classList.remove("hidden");
+      calendarNav.classList.remove("hidden");
+      listBtn.setAttribute("aria-pressed", "false");
+      calBtn.setAttribute("aria-pressed", "true");
+      renderCalendar();
+      calBtn.focus();
+    }
+
+    listBtn.addEventListener("click", showListView);
+    calBtn.addEventListener("click", showCalendarView);
+
+    /* ---------- Image preview update when user selects a new file in the form ---------- */
+    entryImageEl.addEventListener("change", () => {
+      const file = entryImageEl.files[0];
+      if (!file) {
+        // If user cleared selection, do nothing (existing preview remains until save/cancel)
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        previewImg.src = reader.result;
+        previewImg.alt = "Preview of selected image";
+        previewDiv.classList.remove("hidden");
+      };
+      reader.readAsDataURL(file);
+    });
+
+    /* ---------- Initialize (no demo data) ---------- */
+    // Note: no seedEntries() — removed test/demo population as requested
+
+    // render initial entries view
     renderEntries();
+    // default to list view
+    showListView();
   </script>
 </body>
 </html>
